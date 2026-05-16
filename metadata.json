@@ -1,0 +1,10 @@
+{
+  "name": "SnapXR",
+  "description": "Browser-based spatial desktop streaming platform",
+  "requestFramePermissions": [
+    "display-capture",
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
