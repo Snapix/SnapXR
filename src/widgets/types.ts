@@ -7,7 +7,8 @@ export type WidgetType =
   | 'visualizer'
   | 'pomodoro'
   | 'focus-tracker'
-  | 'ambient-stream';
+  | 'ambient-stream'
+  | 'compass';
 
 export interface WidgetInstance {
   id: string;           

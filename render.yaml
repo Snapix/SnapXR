@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: snapxr
+    env: node
+    buildCommand: npm run build
+    startCommand: node dist/server.cjs
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000

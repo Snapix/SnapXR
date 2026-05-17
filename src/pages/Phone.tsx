@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { getSocket, disconnectSocket } from "../utils/socket";
 import { Socket } from "socket.io-client";
 import SpatialScene from "../components/SpatialScene";
@@ -7,8 +7,8 @@ import { WidgetInstance } from "../widgets/types";
 function ErrorBanner({ message }: { message: string | null }) {
   if (!message) return null;
   return (
-    <div className="error-banner" style={{ background: "rgba(255, 77, 109, 0.1)", color: "#ff4d6d", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255, 77, 109, 0.3)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-      <span className="error-banner-icon">⚠️</span>
+    <div style={{ background: "rgba(255, 77, 109, 0.1)", color: "#ff4d6d", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255, 77, 109, 0.3)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+      <span>⚠️</span>
       <span>{message}</span>
     </div>
   );
@@ -30,7 +30,7 @@ export default function Phone() {
 
   const [spatialSettings, setSpatialSettings] = useState({
     distance: 3, scale: 1, curvature: 0, environment: "city", angle: 0, vOffset: 0, hOffset: 0,
-    envBrightness: 1, ambientLight: 0.5, frameStyle: "none", frameBorder: false, fov: 75,
+    envBrightness: 1, ambientLight: 0.5, frameStyle: "none", frameBorder: false, fov: 75, customBackgroundUrl: null,
   });
   const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
 
@@ -38,21 +38,8 @@ export default function Phone() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // frameCanvas is kept as fallback only — not used when WebRTC stream is live
-  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  useEffect(() => { return () => disconnectSocket(); }, []);
 
-  useEffect(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1280; canvas.height = 720;
-    frameCanvasRef.current = canvas;
-    ctxRef.current = canvas.getContext("2d");
-    return () => disconnectSocket();
-  }, []);
-
-  // FIX: Socket effect uses [] deps — stable, never tears down during streaming.
-  // Previously had [streamReady] dep, which caused all listeners to be re-registered
-  // the moment a WebRTC track arrived, dropping ICE candidates queued in that window.
   useEffect(() => {
     const socket = getSocket();
     socketRef.current = socket;
@@ -68,14 +55,6 @@ export default function Phone() {
       activeHostIdRef.current = hostId;
       setState("connected");
     });
-
-    // Legacy canvas-frame fallback (only fires if host uses canvas mode)
-    const frameImg = new Image();
-    const onVideoFrame = (data: string) => {
-      if (!ctxRef.current) return;
-      frameImg.onload = () => { if (ctxRef.current) ctxRef.current.drawImage(frameImg, 0, 0, 1280, 720); };
-      frameImg.src = data;
-    };
 
     const setupWebRTC = async (offer: any) => {
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
@@ -94,10 +73,8 @@ export default function Phone() {
       };
 
       pc.ontrack = (event) => {
-        console.log("[WebRTC] ontrack fired, streams:", event.streams.length);
         if (event.streams && event.streams[0]) {
           setStream(event.streams[0]);
-          // streamReady state removed — no longer needed as dep
         }
       };
 
@@ -119,7 +96,6 @@ export default function Phone() {
     socket.on("webrtc-ice-candidate", (candidate: any) => {
       pcRef.current?.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
     });
-    socket.on("video-frame", onVideoFrame);
     socket.on("join-error", ({ message }: any) => { setError(message); setState("error"); });
     socket.on("scene-state", (payload: any) => {
       const stateObj = payload.state || payload;
@@ -140,10 +116,10 @@ export default function Phone() {
     return () => {
       socket.off("connect"); socket.off("disconnect"); socket.off("connect_error");
       socket.off("hosts-updated"); socket.off("host-joined"); socket.off("webrtc-offer");
-      socket.off("webrtc-ice-candidate"); socket.off("video-frame"); socket.off("join-error");
+      socket.off("webrtc-ice-candidate"); socket.off("join-error");
       socket.off("scene-state"); socket.off("peer-disconnected");
     };
-  }, []); // stable — never re-registers during streaming
+  }, []);
 
   function joinHost(hostId: string) {
     if (!socketRef.current?.connected) socketRef.current?.connect();
@@ -170,12 +146,17 @@ export default function Phone() {
     setIsReady(false);
   }
 
+  function handleStartWorkspace() {
+    setIsReady(true);
+    window.dispatchEvent(new CustomEvent('snapxr:start-video'));
+  }
+
   if (state === "connected" && !isReady) {
     return (
-      <div style={{ position: "fixed", inset: 0, backgroundColor: "#000", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "40px", textAlign: "center" }}>
+      <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--bg)", color: "var(--text)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "40px", textAlign: "center" }}>
         <h2 style={{ color: "var(--accent)", marginBottom: "20px" }}>Ready to Join?</h2>
         <p style={{ maxWidth: "400px", lineHeight: 1.5, marginBottom: "40px", color: "var(--muted)" }}>Tap the button below to initialize the spatial workspace and start the stream.</p>
-        <button className="btn-primary" style={{ padding: "16px 40px", fontSize: "18px" }} onClick={() => setIsReady(true)}>🚀 Start Workspace</button>
+        <button className="btn-primary" style={{ padding: "16px 40px", fontSize: "18px" }} onClick={handleStartWorkspace}>🚀 Start Workspace</button>
       </div>
     );
   }
@@ -183,40 +164,35 @@ export default function Phone() {
   if (state === "connected" && isReady) {
     if (mode === "vr" && !vrWarningAcknowledged) {
       return (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "#000", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "40px", textAlign: "center" }}>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--bg)", color: "var(--text)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "40px", textAlign: "center" }}>
           <h2 style={{ color: "var(--accent)" }}>⚠️ VR Mode Warning</h2>
           <p style={{ maxWidth: "400px", lineHeight: 1.5, marginBottom: "40px" }}>VR Mode requires a compatible VR headset attachment for your phone. Prolonged use may cause motion sickness.</p>
           <button className="btn-primary" onClick={() => setVrWarningAcknowledged(true)}>I Understand</button>
-          <button className="btn-secondary glass" style={{ marginTop: "16px" }} onClick={() => setMode("spatial")}>Cancel</button>
+          <button className="btn-secondary" style={{ marginTop: "16px" }} onClick={() => setMode("spatial")}>Cancel</button>
         </div>
       );
     }
 
-    // FIX: Pass frameCanvas ONLY when no live WebRTC stream exists.
-    // Previously both were passed; the frameCanvas (always a blank canvas) overrode
-    // the WebRTC video texture in VideoScreen → black screen on phone.
-    const frameCanvasProp = stream ? null : frameCanvasRef.current;
-
     return (
-      <div style={{ width: "100vw", height: "100vh", background: "#000", display: "flex", position: "relative", overflow: "hidden" }}>
+      <div style={{ width: "100vw", height: "100vh", background: "var(--bg)", display: "flex", position: "relative", overflow: "hidden" }}>
         {mode === "vr" ? (
           <>
             <div style={{ flex: 1, overflow: "hidden", borderRight: "2px solid #111" }}>
-              <SpatialScene stream={stream} frameCanvas={frameCanvasProp} settings={spatialSettings} widgets={widgets} mode="vr" isEditing={false} isHost={false} fov={spatialSettings.fov} />
+              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} fov={spatialSettings.fov} />
             </div>
             <div style={{ flex: 1, overflow: "hidden" }}>
-              <SpatialScene stream={stream} frameCanvas={frameCanvasProp} settings={spatialSettings} widgets={widgets} mode="vr" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} />
+              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} />
             </div>
-            <button onClick={() => setMode("spatial")} style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "rgba(0,245,212,0.15)", border: "1px solid rgba(0,245,212,0.4)", color: "#00f5d4", padding: "8px 20px", borderRadius: "100px", fontFamily: "monospace", fontSize: 12, cursor: "pointer", backdropFilter: "blur(10px)", zIndex: 100 }}>EXIT VR</button>
+            <button onClick={() => setMode("spatial")} style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--accent)", padding: "8px 20px", borderRadius: "100px", fontFamily: "var(--font-mono)", fontSize: 12, cursor: "pointer", backdropFilter: "blur(10px)", zIndex: 100 }}>EXIT VR</button>
           </>
         ) : (
           <>
-            <SpatialScene stream={stream} frameCanvas={frameCanvasProp} settings={spatialSettings} widgets={widgets} mode="spatial" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} />
+            <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="spatial" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(transparent, rgba(0,0,0,0.8))", pointerEvents: "none" }}>
-              <span style={{ fontFamily: "monospace", fontSize: 11, color: "rgba(0,245,212,0.6)" }}>◉ {gyroActive ? "SPATIAL MODE ACTIVE" : "TAP TO START GYRO"}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(0, 180, 255, 0.6)" }}>◉ {gyroActive ? "SPATIAL MODE ACTIVE" : "TAP TO START GYRO"}</span>
               <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
-                <button onClick={() => setMode("vr")} style={{ background: "rgba(0,245,212,0.1)", border: "1px solid rgba(0,245,212,0.3)", color: "#00f5d4", padding: "6px 14px", borderRadius: "100px", fontFamily: "monospace", fontSize: 11, cursor: "pointer" }}>VR MODE</button>
-                <button onClick={disconnect} style={{ background: "rgba(255,77,109,0.1)", border: "1px solid rgba(255,77,109,0.3)", color: "#ff4d6d", padding: "6px 14px", borderRadius: "100px", fontFamily: "monospace", fontSize: 11, cursor: "pointer" }}>END</button>
+                <button onClick={() => setMode("vr")} style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--accent)", padding: "6px 14px", borderRadius: "100px", fontFamily: "var(--font-mono)", fontSize: 11, cursor: "pointer" }}>VR MODE</button>
+                <button onClick={disconnect} style={{ background: "rgba(255,77,109,0.1)", border: "1px solid rgba(255,77,109,0.3)", color: "#ff4d6d", padding: "6px 14px", borderRadius: "100px", fontFamily: "var(--font-mono)", fontSize: 11, cursor: "pointer" }}>END</button>
               </div>
             </div>
           </>
@@ -227,7 +203,7 @@ export default function Phone() {
 
   return (
     <div className="page" style={{ padding: "80px 20px 20px", background: "var(--bg)", color: "var(--text)" }}>
-      <div className="card" style={{ maxWidth: "400px", margin: "0 auto", gap: "20px" }}>
+      <div className="card glass" style={{ maxWidth: "400px", margin: "0 auto", gap: "20px", padding: "24px", borderRadius: "var(--radius)" }}>
         <div className="brand" style={{ justifyContent: "center", marginBottom: "8px" }}><span className="brand-name">Snap<span>XR</span></span></div>
         <h1 style={{ textAlign: "center", fontSize: "24px" }}>Connect Viewer</h1>
         <ErrorBanner message={error} />
@@ -256,8 +232,8 @@ export default function Phone() {
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <h3 style={{ fontSize: "14px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "1px" }}>Manual PIN Connect</h3>
           <div style={{ display: "flex", gap: 8 }}>
-            <input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="0000" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value.slice(0, 4))} style={{ flex: 1, padding: "12px", fontSize: "18px", fontFamily: "var(--font-mono)", textAlign: "center", letterSpacing: "4px", background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "8px", outline: "none" }} />
-            <button className="btn btn-primary glass-strong" onClick={handleDirectPinJoin} disabled={pinInput.length < 4} style={{ width: "auto", padding: "12px 24px" }}>Join</button>
+            <input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="0000" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value.slice(0, 4))} className="input-field" style={{ flex: 1, textAlign: "center", letterSpacing: "4px" }} />
+            <button className="btn btn-primary glass-strong" onClick={handleDirectPinJoin} disabled={pinInput.length < 4} style={{ width: "auto", padding: "12px 24px", opacity: pinInput.length < 4 ? 0.5 : 1 }}>Join</button>
           </div>
         </div>
       </div>

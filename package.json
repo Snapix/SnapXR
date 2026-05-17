@@ -1,7 +1,8 @@
 {
-  "name": "react-example",
+  "name": "snapxr",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "SnapXR - Spatial streaming with WebRTC, Three.js, and a liquid galaxy UI",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

@@ -13,16 +13,13 @@ interface BaseWidgetProps {
 export function BaseWidget({ widget, isHost, isEditing, onDragStart, onRemove, children }: BaseWidgetProps) {
   return (
     <div className="widget-card" style={{ minWidth: '160px', pointerEvents: 'auto' }}>
-      {/* Drag handle bar — only shown to host during editing */}
       {(isHost && isEditing) && (
         <div
           onPointerDown={(e) => {
-            if (e.button === 0) {
-              onDragStart?.(e);
-            }
+            if (e.button === 0) onDragStart?.(e);
           }}
           style={{
-            background: 'rgba(255,255,255,0.06)',
+            background: 'rgba(255,255,255,0.04)',
             height: '28px',
             cursor: 'grab',
             borderTopLeftRadius: '14px',
@@ -34,9 +31,8 @@ export function BaseWidget({ widget, isHost, isEditing, onDragStart, onRemove, c
             userSelect: 'none'
           }}
         >
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px' }}>⠿</span>
+          <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '11px' }}>⠿</span>
           <button
-            onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
             onClick={(e) => { e.stopPropagation(); onRemove?.(widget.id); }}
             style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px' }}
           >

@@ -22,7 +22,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
             { label: "👆 First App", href: "https://touchlesstouch.vercel.app", text: "TouchlessTouch" },
             { label: "📡 SnapStream", href: "https://snapstreamme.vercel.app", text: "snapstreamme.vercel.app" },
           ].map((l) => (
-            <a key={l.href} href={l.href} target="_blank" rel="noreferrer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderRadius: "10px", background: "rgba(30,120,255,0.08)", border: "1px solid rgba(30,120,255,0.2)", color: "var(--text)", textDecoration: "none", fontSize: "13px", transition: "all 0.2s ease" }}>
+            <a key={l.href} href={l.href} target="_blank" rel="noreferrer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderRadius: "10px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", textDecoration: "none", fontSize: "13px", transition: "all 0.2s ease" }}>
               <span>{l.label}</span>
               <span style={{ color: "var(--accent)", fontFamily: "var(--font-mono)", fontSize: "11px" }}>{l.text}</span>
             </a>
@@ -59,7 +59,6 @@ export default function Desktop() {
   const [settings, setSettings] = useState<SceneConfig["settings"]>(saved.settings);
   const [widgets, setWidgets] = useState<WidgetInstance[]>(saved.widgets);
 
-  // Keep refs so socket handlers always see latest values without re-registering
   const settingsRef = useRef(settings);
   const widgetsRef = useRef(widgets);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
@@ -71,16 +70,11 @@ export default function Desktop() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
 
-  // Auto-save settings
   useEffect(() => {
     const t = setTimeout(() => { saveSceneConfig({ settings, widgets, hostName }); }, 500);
     return () => clearTimeout(t);
   }, [settings, widgets, hostName]);
 
-  // FIX: Socket setup runs ONCE with stable [] deps.
-  // Previously had [settings, widgets, appState] — when phone connected and
-  // setAppState("streaming") fired, all socket listeners were torn down mid-negotiation,
-  // dropping the webrtc-answer and permanently killing the WebRTC handshake.
   useEffect(() => {
     const socket = getSocket();
     socketRef.current = socket;
@@ -101,14 +95,12 @@ export default function Desktop() {
       appStateRef.current = "streaming";
       setAppState("streaming");
 
-      // Emit scene-state using refs — no stale closure risk
       socket.emit("scene-state", {
         hostId: hostIdRef.current,
         state: { settings: settingsRef.current, widgets: widgetsRef.current },
         token: getHostToken(),
       });
 
-      // Start WebRTC negotiation now that phone is connected
       if (streamRef.current) {
         setupWebRTC(streamRef.current, socket);
       }
@@ -152,7 +144,7 @@ export default function Desktop() {
       socket.off("rate-limited");
       if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
     };
-  }, []); // stable — no deps that change during streaming
+  }, []);
 
   async function setupWebRTC(stream: MediaStream, socket: Socket) {
     if (pcRef.current) { pcRef.current.close(); pcRef.current = null; }
@@ -178,7 +170,7 @@ export default function Desktop() {
     };
 
     try {
-      const offer = await pc.createOffer({ offerToReceiveVideo: false, offerToReceiveAudio: false });
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       socket.emit("webrtc-offer", { hostId: hostIdRef.current, data: offer });
     } catch (e) {
@@ -241,19 +233,24 @@ export default function Desktop() {
 
   const ENV_PRESETS = ["night", "city", "dawn", "forest", "apartment", "studio", "sunset", "warehouse"];
 
+  function handleCustomBackground(file: File) {
+    const url = URL.createObjectURL(file);
+    setSettings((s) => ({ ...s, customBackgroundUrl: url }));
+  }
+
   if (appState === "idle") {
     return (
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(30,120,255,0.08) 0%, transparent 60%)" }}>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg)", backgroundImage: "radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 60%)" }}>
         {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
-        <button onClick={() => setShowAbout(true)} style={{ position: "absolute", bottom: "24px", right: "24px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--muted)", borderRadius: "var(--radius-pill)", padding: "8px 18px", fontSize: "12px", cursor: "pointer", transition: "all 0.2s ease" }}>About</button>
+        <button onClick={() => setShowAbout(true)} style={{ position: "absolute", bottom: "80px", right: "24px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)", borderRadius: "var(--radius-pill)", padding: "8px 18px", fontSize: "12px", cursor: "pointer", transition: "all 0.2s ease" }}>About</button>
         <div style={{ marginBottom: "48px", textAlign: "center" }}>
-          <div style={{ fontSize: "52px", fontWeight: 900, letterSpacing: "-0.03em", color: "#fff" }}>Snap<span style={{ color: "var(--accent)", textShadow: "var(--glow-blue)" }}>XR</span></div>
+          <div style={{ fontSize: "52px", fontWeight: 900, letterSpacing: "-0.03em", color: "var(--text)" }}>Snap<span style={{ color: "var(--accent)", textShadow: "var(--glow-accent)" }}>XR</span></div>
           <div style={{ color: "var(--muted)", fontSize: "14px", marginTop: "6px", letterSpacing: "0.1em" }}>SPATIAL STREAMING. REIMAGINED.</div>
         </div>
         {error && <div style={{ marginBottom: "20px", padding: "12px 20px", borderRadius: "12px", background: "rgba(255,58,92,0.1)", border: "1px solid rgba(255,58,92,0.3)", color: "#ff4d6d", fontSize: "13px", maxWidth: "380px", textAlign: "center" }}>{error}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: "14px", width: "100%", maxWidth: "320px" }}>
           <button className="btn-primary" style={{ width: "100%", padding: "18px", fontSize: "16px", borderRadius: "16px" }} onClick={startStream}>▶  Start Stream</button>
-          <button className="btn-secondary" style={{ width: "100%", padding: "18px", fontSize: "16px", borderRadius: "16px", border: "1px solid rgba(30,120,255,0.3)", color: "var(--accent-bright)" }} onClick={() => setAppState("editing")}>✏️  Edit Scene</button>
+          <button className="btn-secondary" style={{ width: "100%", padding: "18px", fontSize: "16px", borderRadius: "16px" }} onClick={() => setAppState("editing")}>✏️  Edit Scene</button>
         </div>
         <p style={{ color: "rgba(255,255,255,0.12)", fontSize: "11px", marginTop: "40px", letterSpacing: "0.05em" }}>Open on phone to connect viewer</p>
       </div>
@@ -262,23 +259,23 @@ export default function Desktop() {
 
   if (appState === "editing") {
     return (
-      <div style={{ position: "absolute", inset: 0, background: "#000" }}>
+      <div style={{ position: "absolute", inset: 0, background: "var(--bg)" }}>
         <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={true} isHost={true} onWidgetMove={handleMoveWidget} onWidgetRemove={handleRemoveWidget} fov={settings.fov} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 50, pointerEvents: "auto", background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
           <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => setAppState("idle")}>← Cancel</button>
-          <div style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(12px)", border: "1px solid rgba(30,120,255,0.2)", borderRadius: "var(--radius-pill)", padding: "6px 16px", fontSize: "11px", color: "rgba(30,120,255,0.7)", letterSpacing: "0.05em" }}>🖱️ Right-click drag to look · Left-click drag widget to move</div>
+          <div style={{ background: "var(--surface)", backdropFilter: "blur(12px)", border: "1px solid var(--border)", borderRadius: "var(--radius-pill)", padding: "6px 16px", fontSize: "11px", color: "var(--muted)", letterSpacing: "0.05em" }}>🖱️ Right-click drag to look · Left-click drag widget to move</div>
           <button className="btn-primary" style={{ padding: "8px 24px" }} onClick={() => { saveSceneConfig({ settings, widgets, hostName }); setAppState("idle"); }}>💾 Save & Exit</button>
         </div>
         <div style={{ position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 50, width: "calc(100vw - 40px)", maxWidth: "1200px", pointerEvents: "auto" }}>
           <div className="glass-strong" style={{ padding: "20px 24px", display: "flex", gap: "24px", overflowX: "auto", borderRadius: "20px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Widgets</span><WidgetPanel activeWidgets={widgets} onAddWidget={handleAddWidget} /></div>
-            <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+            <div style={{ width: "1px", background: "var(--border)", flexShrink: 0 }} />
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "200px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Screen</span><DockSlider label="Distance" value={settings.distance} min={1} max={8} onChange={(v) => setSettings((s) => ({ ...s, distance: v }))} /><DockSlider label="Scale" value={settings.scale} min={0.3} max={4} onChange={(v) => setSettings((s) => ({ ...s, scale: v }))} /><DockSlider label="Angle °" value={settings.angle} min={-45} max={45} onChange={(v) => setSettings((s) => ({ ...s, angle: v }))} /></div>
-            <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "180px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Environment</span><select value={settings.environment} onChange={(e) => setSettings((s) => ({ ...s, environment: e.target.value }))} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text)", borderRadius: "10px", padding: "8px 10px", fontSize: "12px", cursor: "pointer" }}>{ENV_PRESETS.map((e) => (<option key={e} value={e} style={{ background: "#111" }}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>))}</select><DockSlider label="Brightness" value={settings.envBrightness} min={0} max={3} onChange={(v) => setSettings((s) => ({ ...s, envBrightness: v }))} /><DockSlider label="FOV" value={settings.fov} min={50} max={120} step={1} onChange={(v) => setSettings((s) => ({ ...s, fov: v }))} /></div>
-            <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+            <div style={{ width: "1px", background: "var(--border)", flexShrink: 0 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "180px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Environment</span><select value={settings.environment} onChange={(e) => setSettings((s) => ({ ...s, environment: e.target.value }))} style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "10px", padding: "8px 10px", fontSize: "12px", cursor: "pointer" }}>{ENV_PRESETS.map((e) => (<option key={e} value={e} style={{ background: "var(--bg)" }}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>))}</select><DockSlider label="Brightness" value={settings.envBrightness} min={0} max={3} onChange={(v) => setSettings((s) => ({ ...s, envBrightness: v }))} /><DockSlider label="FOV" value={settings.fov} min={50} max={120} step={1} onChange={(v) => setSettings((s) => ({ ...s, fov: v }))} /><label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", color: "var(--muted)", cursor: "pointer" }}><input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleCustomBackground(e.target.files[0])} style={{ display: "none" }} /><span style={{ padding: "6px 12px", borderRadius: "8px", border: "1px dashed var(--border)", fontSize: "10px" }}>+ Upload 360° BG</span></label></div>
+            <div style={{ width: "1px", background: "var(--border)", flexShrink: 0 }} />
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "160px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Position Offset</span><DockSlider label="Vertical" value={settings.vOffset} min={-2} max={2} onChange={(v) => setSettings((s) => ({ ...s, vOffset: v }))} /><DockSlider label="Horizontal" value={settings.hOffset} min={-2} max={2} onChange={(v) => setSettings((s) => ({ ...s, hOffset: v }))} /></div>
-            <div style={{ width: "1px", background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+            <div style={{ width: "1px", background: "var(--border)", flexShrink: 0 }} />
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "130px", flexShrink: 0 }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Frame</span><label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--muted)", cursor: "pointer" }}><input type="checkbox" checked={settings.frameBorder} onChange={(e) => setSettings((s) => ({ ...s, frameBorder: e.target.checked }))} style={{ accentColor: "var(--accent)" }} />Thick Border</label></div>
           </div>
         </div>
@@ -290,15 +287,15 @@ export default function Desktop() {
   const statusColor = appState === "streaming" ? "#22ff88" : appState === "waiting" ? "var(--accent)" : "var(--muted)";
 
   return (
-    <div style={{ position: "absolute", inset: 0, background: "#000" }}>
+    <div style={{ position: "absolute", inset: 0, background: "var(--bg)" }}>
       <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={false} isHost={true} fov={settings.fov} />
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, padding: "14px 24px", display: "flex", alignItems: "center", gap: "16px", background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)", pointerEvents: "auto" }}>
         <span style={{ fontWeight: 800, fontSize: "16px" }}>Snap<span style={{ color: "var(--accent)" }}>XR</span></span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: statusColor, letterSpacing: "0.05em" }}>{statusLabel}</span>
-        {pin && <div style={{ background: "rgba(30,120,255,0.12)", border: "1px solid rgba(30,120,255,0.35)", borderRadius: "var(--radius-pill)", padding: "6px 16px", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase" }}>PIN</span><span style={{ fontFamily: "var(--font-mono)", fontSize: "22px", fontWeight: 700, color: "var(--accent)", letterSpacing: "0.3em", textShadow: "var(--glow-blue-sm)" }}>{pin}</span></div>}
+        {pin && <div style={{ background: "var(--accent-glow)", border: "1px solid var(--border-glow)", borderRadius: "var(--radius-pill)", padding: "6px 16px", display: "flex", alignItems: "center", gap: "10px" }}><span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase" }}>PIN</span><span style={{ fontFamily: "var(--font-mono)", fontSize: "22px", fontWeight: 700, color: "var(--accent)", letterSpacing: "0.3em", textShadow: "var(--glow-accent-sm)" }}>{pin}</span></div>}
         <div style={{ flex: 1 }} />
         <button className="btn-secondary" style={{ padding: "8px 18px", fontSize: "12px" }} onClick={() => setAppState("editing")}>✏️ Edit</button>
-        <button style={{ background: "rgba(255,58,92,0.15)", border: "1px solid rgba(255,58,92,0.4)", color: "#ff4d6d", borderRadius: "var(--radius-pill)", padding: "8px 20px", fontSize: "13px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }} onClick={() => endSession()}>⏹ Stop</button>
+        <button className="btn-danger" style={{ padding: "8px 20px", fontSize: "13px" }} onClick={() => endSession()}>⏹ Stop</button>
       </div>
       {pin && <div className="glass" style={{ position: "absolute", bottom: "24px", left: "24px", zIndex: 50, padding: "14px 18px", borderRadius: "14px", pointerEvents: "none" }}><p style={{ margin: 0, fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Discoverable on LAN</p><p style={{ margin: "4px 0 0", fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--accent)" }}>{window.location.hostname}:{window.location.port || "3000"}</p></div>}
     </div>
