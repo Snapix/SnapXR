@@ -48,11 +48,11 @@ function EditSphere() {
     <group>
       <mesh ref={meshRef}>
         <icosahedronGeometry args={[SPHERE_RADIUS, 3]} />
-        <meshBasicMaterial wireframe color="var(--accent)" transparent opacity={0.18} side={THREE.BackSide} />
+        <meshBasicMaterial wireframe color="#00b4ff" transparent opacity={0.18} side={THREE.BackSide} />
       </mesh>
       <mesh>
         <sphereGeometry args={[SPHERE_RADIUS, 32, 32]} />
-        <meshBasicMaterial color="var(--accent-secondary)" transparent opacity={0.04} side={THREE.BackSide} />
+        <meshBasicMaterial color="#7c3aed" transparent opacity={0.04} side={THREE.BackSide} />
       </mesh>
     </group>
   );
@@ -192,7 +192,7 @@ export default function SpatialScene({ stream, settings, widgets, isEditing, onW
       )}
       <ambientLight intensity={Math.max(0.4, settings.ambientLight ?? 0.5)} />
       <pointLight position={[5, 10, 5]} intensity={2} />
-      {isEditing && (<><EditSphere /><gridHelper args={[20, 20, "var(--accent)", "#0a0a20"]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -5]} /><mesh position={[2, 0, -4]}><boxGeometry args={[0.2, 0.2, 0.2]} /><meshStandardMaterial color="#22ff88" emissive="#22ff88" emissiveIntensity={0.5} /></mesh></>)}
+      {isEditing && (<><EditSphere /><gridHelper args={[20, 20, "#00b4ff", "#0a0a20"]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -5]} /><mesh position={[2, 0, -4]}><boxGeometry args={[0.2, 0.2, 0.2]} /><meshStandardMaterial color="#22ff88" emissive="#22ff88" emissiveIntensity={0.5} /></mesh></>)}
       <VideoScreen stream={stream} settings={settings} />
       <group renderOrder={2}><WidgetRenderer widgets={widgets} isHost={isHost} isEditing={isEditing} onMove={(id, theta, phi) => { setIsDraggingWidget(true); onWidgetMove?.(id, theta, phi); }} onRemove={onWidgetRemove} /></group>
       {isEditing ? <EditControls enabled={!isDraggingWidget} /> : <ViewControls useGyro={useGyro} onGyroStatus={onGyroStatus} />}
