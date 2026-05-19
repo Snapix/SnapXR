@@ -42,14 +42,19 @@ export default function Phone() {
   useEffect(() => { return () => disconnectSocket(); }, []);
 
   useEffect(() => {
-    if (!stream || hostVideoRef.current) return;
-    const v = document.createElement("video");
-    v.srcObject = stream;
-    v.muted = true;
-    v.playsInline = true;
-    v.setAttribute("webkit-playsinline", "true");
-    hostVideoRef.current = v;
-  }, [stream]);
+    if (!stream) return;
+    if (!hostVideoRef.current) {
+      const v = document.createElement("video");
+      v.srcObject = stream;
+      v.muted = true;
+      v.playsInline = true;
+      v.setAttribute("webkit-playsinline", "true");
+      hostVideoRef.current = v;
+    }
+    if (isReady) {
+      hostVideoRef.current.play().catch(() => {});
+    }
+  }, [stream, isReady]);
 
   useEffect(() => {
     const socket = getSocket();
