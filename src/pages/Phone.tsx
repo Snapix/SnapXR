@@ -42,6 +42,16 @@ export default function Phone() {
   useEffect(() => { return () => disconnectSocket(); }, []);
 
   useEffect(() => {
+    if (!stream || hostVideoRef.current) return;
+    const v = document.createElement("video");
+    v.srcObject = stream;
+    v.muted = true;
+    v.playsInline = true;
+    v.setAttribute("webkit-playsinline", "true");
+    hostVideoRef.current = v;
+  }, [stream]);
+
+  useEffect(() => {
     const socket = getSocket();
     socketRef.current = socket;
     if (!socket.connected) socket.connect();
@@ -149,14 +159,8 @@ export default function Phone() {
 
   function handleStartWorkspace() {
     setIsReady(true);
-    if (stream && !hostVideoRef.current) {
-      const v = document.createElement("video");
-      v.srcObject = stream;
-      v.muted = true;
-      v.playsInline = true;
-      v.setAttribute("webkit-playsinline", "true");
-      hostVideoRef.current = v;
-      v.play().catch(() => {});
+    if (hostVideoRef.current) {
+      hostVideoRef.current.play().catch(() => {});
     }
   }
 
