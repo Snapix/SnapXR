@@ -260,7 +260,7 @@ export default function Desktop() {
   if (appState === "editing") {
     return (
       <div style={{ position: "absolute", inset: 0, background: "var(--bg)" }}>
-        <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={true} isHost={true} onWidgetMove={handleMoveWidget} onWidgetRemove={handleRemoveWidget} fov={settings.fov} />
+        <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={true} isHost={true} onWidgetMove={handleMoveWidget} onWidgetRemove={handleRemoveWidget} fov={settings.fov} workspaceActive={true} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 50, pointerEvents: "auto", background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
           <button className="btn-secondary" style={{ padding: "8px 20px" }} onClick={() => setAppState("idle")}>← Cancel</button>
           <div style={{ background: "var(--surface)", backdropFilter: "blur(12px)", border: "1px solid var(--border)", borderRadius: "var(--radius-pill)", padding: "6px 16px", fontSize: "11px", color: "var(--muted)", letterSpacing: "0.05em" }}>🖱️ Right-click drag to look · Left-click drag widget to move</div>
@@ -288,7 +288,7 @@ export default function Desktop() {
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "var(--bg)" }}>
-      <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={false} isHost={true} fov={settings.fov} />
+      <SpatialScene stream={stream} settings={settings} widgets={widgets} isEditing={false} isHost={true} fov={settings.fov} workspaceActive={true} />
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, padding: "14px 24px", display: "flex", alignItems: "center", gap: "16px", background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)", pointerEvents: "auto" }}>
         <span style={{ fontWeight: 800, fontSize: "16px" }}>Snap<span style={{ color: "var(--accent)" }}>XR</span></span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: statusColor, letterSpacing: "0.05em" }}>{statusLabel}</span>
