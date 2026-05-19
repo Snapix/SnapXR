@@ -37,6 +37,7 @@ export default function Phone() {
   const socketRef = useRef<Socket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const hostVideoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => { return () => disconnectSocket(); }, []);
 
@@ -148,6 +149,15 @@ export default function Phone() {
 
   function handleStartWorkspace() {
     setIsReady(true);
+    if (stream && !hostVideoRef.current) {
+      const v = document.createElement("video");
+      v.srcObject = stream;
+      v.muted = true;
+      v.playsInline = true;
+      v.setAttribute("webkit-playsinline", "true");
+      hostVideoRef.current = v;
+      v.play().catch(() => {});
+    }
   }
 
   if (state === "connected" && !isReady) {
@@ -177,16 +187,16 @@ export default function Phone() {
         {mode === "vr" ? (
           <>
             <div style={{ flex: 1, overflow: "hidden", borderRight: "2px solid #111" }}>
-              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} fov={spatialSettings.fov} workspaceActive={isReady} />
+              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} fov={spatialSettings.fov} workspaceActive={isReady} hostVideoRef={hostVideoRef} />
             </div>
             <div style={{ flex: 1, overflow: "hidden" }}>
-              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} workspaceActive={isReady} />
+              <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="vr" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} workspaceActive={isReady} hostVideoRef={hostVideoRef} />
             </div>
             <button onClick={() => setMode("spatial")} style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--accent)", padding: "8px 20px", borderRadius: "100px", fontFamily: "var(--font-mono)", fontSize: 12, cursor: "pointer", backdropFilter: "blur(10px)", zIndex: 100 }}>EXIT VR</button>
           </>
         ) : (
           <>
-            <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="spatial" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} workspaceActive={isReady} />
+            <SpatialScene stream={stream} settings={spatialSettings as any} widgets={widgets} mode="spatial" isEditing={false} isHost={false} onGyroStatus={setGyroActive} fov={spatialSettings.fov} workspaceActive={isReady} hostVideoRef={hostVideoRef} />
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "linear-gradient(transparent, rgba(0,0,0,0.8))", pointerEvents: "none" }}>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(0, 180, 255, 0.6)" }}>◉ {gyroActive ? "SPATIAL MODE ACTIVE" : "TAP TO START GYRO"}</span>
               <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>

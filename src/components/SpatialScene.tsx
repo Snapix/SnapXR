@@ -18,6 +18,7 @@ export interface SpatialSceneProps {
   onGyroStatus?: (active: boolean) => void;
   fov?: number;
   workspaceActive?: boolean;
+  hostVideoRef?: React.MutableRefObject<HTMLVideoElement | null>;
 }
 
 const SPHERE_RADIUS = 8;
@@ -59,15 +60,26 @@ function EditSphere() {
   );
 }
 
-function VideoScreen({ stream, settings, workspaceActive }: {
+function VideoScreen({ stream, settings, workspaceActive, hostVideoRef }: {
   stream?: MediaStream | null;
   settings: SceneConfig["settings"];
   workspaceActive?: boolean;
+  hostVideoRef?: React.MutableRefObject<HTMLVideoElement | null>;
 }) {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   const texRef = useRef<THREE.Texture | null>(null);
 
   useEffect(() => {
+    const preloadedVideo = hostVideoRef?.current;
+    if (preloadedVideo) {
+      const t = new THREE.VideoTexture(preloadedVideo);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.minFilter = THREE.LinearFilter;
+      t.magFilter = THREE.LinearFilter;
+      texRef.current = t;
+      setTex(t);
+      return () => { if (texRef.current) { texRef.current.dispose(); texRef.current = null; } setTex(null); };
+    }
     const isActive = workspaceActive !== undefined ? workspaceActive : true;
     if (!stream || !isActive) return;
     const video = document.createElement("video");
@@ -92,7 +104,7 @@ function VideoScreen({ stream, settings, workspaceActive }: {
       if (texRef.current) { texRef.current.dispose(); texRef.current = null; }
       setTex(null);
     };
-  }, [stream, workspaceActive]);
+  }, [stream, workspaceActive, hostVideoRef?.current]);
 
   const distance = settings.distance ?? 3;
   const scale = settings.scale ?? 1;
@@ -159,7 +171,7 @@ function ViewControls({ useGyro, onGyroStatus }: { useGyro: boolean; onGyroStatu
   return <OrbitControls makeDefault enableZoom={false} enablePan={false} mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: undefined as any, RIGHT: undefined as any }} />;
 }
 
-export default function SpatialScene({ stream, settings, widgets, isEditing, onWidgetMove, onWidgetRemove, isHost, mode = "spatial", onGyroStatus, fov = 75, workspaceActive }: SpatialSceneProps) {
+export default function SpatialScene({ stream, settings, widgets, isEditing, onWidgetMove, onWidgetRemove, isHost, mode = "spatial", onGyroStatus, fov = 75, workspaceActive, hostVideoRef }: SpatialSceneProps) {
   const [useGyro, setUseGyro] = useState(true);
   const [isDraggingWidget, setIsDraggingWidget] = useState(false);
   useEffect(() => {
@@ -189,7 +201,7 @@ export default function SpatialScene({ stream, settings, widgets, isEditing, onW
       <ambientLight intensity={Math.max(0.4, settings.ambientLight ?? 0.5)} />
       <pointLight position={[5, 10, 5]} intensity={2} />
       {isEditing && (<><EditSphere /><gridHelper args={[20, 20, "#00b4ff", "#0a0a20"]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -5]} /><mesh position={[2, 0, -4]}><boxGeometry args={[0.2, 0.2, 0.2]} /><meshStandardMaterial color="#22ff88" emissive="#22ff88" emissiveIntensity={0.5} /></mesh></>)}
-      <VideoScreen stream={stream} settings={settings} workspaceActive={workspaceActive} />
+      <VideoScreen stream={stream} settings={settings} workspaceActive={workspaceActive} hostVideoRef={hostVideoRef} />
       <group renderOrder={2}><WidgetRenderer widgets={widgets} isHost={isHost} isEditing={isEditing} onMove={(id, theta, phi) => { setIsDraggingWidget(true); onWidgetMove?.(id, theta, phi); }} onRemove={onWidgetRemove} /></group>
       {isEditing ? <EditControls enabled={!isDraggingWidget} /> : <ViewControls useGyro={useGyro} onGyroStatus={onGyroStatus} />}
     </Canvas>
